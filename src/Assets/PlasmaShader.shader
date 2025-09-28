@@ -1,8 +1,10 @@
-Shader "Unlit/NewUnlitShader"
+Shader "Unlit/PlasmaShader"
 {
     Properties
     {
         _MainTex ("Texture", 2D) = "white" {}
+        _Scale("Scale",float)=1
+        _TimeScale("Time Scale",float)=1
     }
     SubShader
     {
@@ -12,7 +14,7 @@ Shader "Unlit/NewUnlitShader"
         Pass
         {
             ZTest Greater
-            Cull Front
+            //Cull Front
 
             CGPROGRAM
             #pragma vertex vert
@@ -26,40 +28,53 @@ Shader "Unlit/NewUnlitShader"
             {
                 float4 vertex : POSITION;
                 float2 uv : TEXCOORD0;
-                float3 normal:NORMAL;
             };
 
             struct v2f
             {
                 float2 uv : TEXCOORD0;
-                UNITY_FOG_COORDS(1)
+                //UNITY_FOG_COORDS(1)
                 float4 vertex : SV_POSITION;
-                // float2 pos : TEXCOORD1;
-                float3 normal:NORMAL;
             };
 
             sampler2D _MainTex;
             float4 _MainTex_ST;
+            float _Scale,_TimeScale;
 
             v2f vert (appdata v)
             {
                 v2f o;
                 o.vertex = UnityObjectToClipPos(v.vertex);
                 o.uv = TRANSFORM_TEX(v.uv, _MainTex);
-                //o.pos=v.vertex.xyz;
-                o.normal=v.normal.xyz;
-                UNITY_TRANSFER_FOG(o,o.vertex);
+                //UNITY_TRANSFER_FOG(o,o.vertex);
                 return o;
+            }
+
+            float3 Plasma(float2 uv)
+            {
+                uv = uv * _Scale - _Scale / 2;
+                float time = _Time.y * _TimeScale;
+                float w1 = sin(uv.x + time);
+                float w2 = sin(uv.y + time) * 0.5;
+                float w3 = sin(uv.x + uv.y + time);
+
+                float r = sin( sqrt(uv.x * uv.x + uv.y * uv.y) + time);
+
+                float finalValue = w1 + w2 + w3 + r;
+
+                float3 finalWave = float3(sin(finalValue * UNITY_PI),cos(finalValue * UNITY_PI), 0);
+                return finalWave*0.5+0.5;
             }
 
             fixed4 frag (v2f i) : SV_Target
             {
                 // sample the texture
-                //fixed4 col = tex2D(_MainTex, i.uv);
-                fixed4 col = lerp(fixed4(1,0,0,1),fixed4(0,0,1,1),i.normal.x*0.5+0.5);
+                fixed3 plasma = Plasma(i.uv);
+                fixed4 col = tex2D(_MainTex, i.uv);
+               
                 // apply fog
                 //UNITY_APPLY_FOG(i.fogCoord, col);
-                return col;
+                return fixed4(col.rgb * plasma.rgb,1);
             }
             ENDCG
         }
